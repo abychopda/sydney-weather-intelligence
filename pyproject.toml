@@ -20,6 +20,7 @@ dependencies = [
     "jupyterlab",
     "loguru",
     "matplotlib",
+    "mlkit-aby>=0.2.0",
     "notebook",
     "numpy",
     "pandas",
@@ -46,3 +47,11 @@ extend-select = ["I"]  # Add import sorting
 known-first-party = ["weather_intelligence"]
 force-sort-within-sections = true
 
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+explicit = true
+
+[tool.uv.sources]
+mlkit-aby = { index = "testpypi" }
