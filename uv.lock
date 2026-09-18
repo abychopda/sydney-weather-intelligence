@@ -889,7 +889,7 @@ wheels = [
 
 [[package]]
 name = "mlkit-aby"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://test.pypi.org/simple/" }
 dependencies = [
     { name = "joblib" },
@@ -900,9 +900,9 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "seaborn" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/e0/46/62b1eff2edc9886ec18ec733f80db6db4f35015fe5f4ea8cf28d5eb95d8a/mlkit_aby-0.2.0.tar.gz", hash = "sha256:b67417f0d34e7c673653af073a823de4c818cabd44dfd4ccd89850e86900a039", size = 17149, upload-time = "2026-09-13T06:37:57.094Z" }
+sdist = { url = "https://test-files.pythonhosted.org/packages/96/b2/7f5ec26238c7ea519ed44e2d448a1a30bc3988aae35acc7e0bdb490f5adb/mlkit_aby-0.3.0.tar.gz", hash = "sha256:b87ab71bde95cec2399810f815bd062a180a61e2c44a05f953d91984b50ad611", size = 23471, upload-time = "2026-09-18T04:25:03.65Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/76/56/09280d33dd3c40ddd918787870eddeaa9da96804439571ffa057a80c5856/mlkit_aby-0.2.0-py3-none-any.whl", hash = "sha256:e068b0e9d7ffbd73293fa7bb6c43e8f24e7848296bdeb9ab8c00d055239beb5a", size = 22502, upload-time = "2026-09-13T06:37:55.173Z" },
+    { url = "https://test-files.pythonhosted.org/packages/2c/38/91f68563924d48af3767b4b67716348ee8510705c67fc1bb5ede2581ceaf/mlkit_aby-0.3.0-py3-none-any.whl", hash = "sha256:fb1026ec20bbb52f3b08128e282dd58923847a23ea2204f56a143900019f8d47", size = 29530, upload-time = "2026-09-18T04:25:01.782Z" },
 ]
 
 [[package]]
@@ -1710,7 +1710,7 @@ requires-dist = [
     { name = "jupyterlab" },
     { name = "loguru" },
     { name = "matplotlib" },
-    { name = "mlkit-aby", specifier = ">=0.2.0", index = "https://test.pypi.org/simple/" },
+    { name = "mlkit-aby", specifier = ">=0.3.0", index = "https://test.pypi.org/simple/" },
     { name = "notebook" },
     { name = "numpy" },
     { name = "pandas" },

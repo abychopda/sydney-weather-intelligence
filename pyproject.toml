@@ -20,7 +20,7 @@ dependencies = [
     "jupyterlab",
     "loguru",
     "matplotlib",
-    "mlkit-aby>=0.2.0",
+    "mlkit-aby>=0.3.0",
     "notebook",
     "numpy",
     "pandas",
