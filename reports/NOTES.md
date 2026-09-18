@@ -139,6 +139,62 @@ weakness. One sample, not a benchmark, but the full path works.
 | Algorithm comparison | **Not done** — Ridge only |
 | Final model chosen | **No** — Ridge is the bar, not the winner |
 
+## WHC Experiment 1 — Logistic baseline: **HYPOTHESIS REJECTED**
+
+Window 2000–2025, horizon 7 days, 116 features. Split 2018 / 2022.
+Train 6,509 · Val 1,454 · Test 1,454 (2022-01-01 → 2025-12-24).
+
+| Model | macro F1 | bal. acc | High recall | Extreme recall | days flagged |
+|---|---|---|---|---|---|
+| Logistic, unweighted (selected) | 0.241 | 0.262 | **0.000** | 0.000 | **0 / 1454** |
+| Logistic, balanced C=0.001 | 0.198 | 0.236 | 0.343 | 0.000 | 659 / 1454 |
+| Majority / persistence / seasonal | — | — | — | — | — |
+
+**The decisive numbers: ROC AUC 0.378, average precision 0.039 (base rate
+0.050).** Both *below random*. The model's ranking of hazardous days is
+anti-correlated with reality, so no threshold, reweighting or recalibration
+can rescue it. Max hazard probability assigned to any day: 0.263.
+
+### Four findings worth reporting
+
+1. **Horizon is the binding constraint.** Same-day correlations with WHI are
+   strong; at +7 days they collapse to near zero (section D.1). Predicted in
+   advance, confirmed by the persistence baseline.
+2. **Drift made it actively worse — and this was NOT anticipated.** Class
+   balance shifted train → test: Low 60% → 48%, Moderate 39% → 52%. Choosing
+   the 26-year window to harvest rare examples traded relevance for volume,
+   and traded badly. Sub-random AUC is the signature of applying an outdated
+   relationship. ⇒ **Revisit the Option 1 window decision for WHC.**
+3. **Macro F1 and balanced accuracy both failed as selection criteria.** Both
+   were chosen specifically to resist imbalance, and both preferred the
+   never-warns model over one catching 34% of hazards, because class
+   weighting loses ground on common classes faster than it gains on rare
+   ones. No single aggregate encoded the business objective; the per-class
+   recall table did.
+4. **Extreme Risk is not learnable.** 4 training examples, 0% recall in every
+   configuration. Document as a service limitation, not a modelling target.
+
+### Consequences for the API
+
+- `/model-metadata` **must** expose per-class recall — an aggregate figure
+  would hide that hazardous classes are undetected.
+- Endpoint docs must state the hazard model is experimental and **not a
+  safety input**. A service that silently never warns is the most dangerous
+  failure mode available.
+- Artefact still saved so the deployment can be validated end to end; the
+  API contract does not depend on model quality.
+
+### WHC experiment 2 — ranked
+
+1. **Recent-only window (2015+)** — cheapest and most informative, given
+   AUC < 0.5. Costs: High 274 → ~158, Extreme 11 → 9.
+2. **Gradient boosted trees** — hazardous days are a *conjunction* (heavy
+   rain AND severe gusts AND total cloud); linear models can't express it.
+3. **Binary reframing** — hazardous vs not, still reporting 4 classes as
+   specified. Raises the positive class from 0.12% to ~3%.
+4. **External predictors** — synoptic/oceanic indices. Local surface
+   observations may simply not contain 7-day information.
+
 ## Next experiments (ranked by expected uplift)
 
 1. Gradient boosted trees — can represent the clipped rain component.
