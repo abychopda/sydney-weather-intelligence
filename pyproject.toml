@@ -31,6 +31,7 @@ dependencies = [
     "scikit-learn",
     "tqdm",
     "typer",
+    "utstd>=0.1.9",
 ]
 requires-python = "~=3.13.0"
 
