@@ -97,6 +97,48 @@ Selected alpha: 100 (h1), 1000 (h2, h3).
 6. Band agreement: 63.3% / 61.8% / 61.9%. Barely degrades with horizon
    because added error stays inside a 20-point band.
 
+## Serving design (why the API must fetch live data)
+
+- The model is a formula, not a stored forecast. Its strongest input is
+  **today's CCI**, which needs the weather on the requested date itself;
+  rolling means need up to **30 days** of preceding history.
+- Calendar features alone = the seasonal baseline = R² 0.05. Recent weather
+  is what takes it to 0.45.
+- ⇒ For a 2026 date the API fetches ~30 days of hourly data ending **on**
+  that date. `required_history_days(recipe)` derives the number from the
+  recipe, so changing the recipe changes the fetch automatically.
+- **Must never fetch past D.** For a past 2026 date the archive already
+  holds D+1…D+7; using them would be production leakage.
+- Brief's "data up to 2025" governs train/val/test. 2026+ is explicitly
+  "data in production" — exactly what the API consumes live. No conflict.
+
+### Refactor: single feature pipeline (done)
+
+The recipe previously lived as notebook cells F.1–F.4, which the API would
+have had to reproduce by hand — classic **training/serving skew**. Now
+`features.build_daily_features(hourly, recipe)` is the single source, and the
+recipe is saved **inside each artefact**. Scaler + model are bundled with
+`make_scaled_pipeline`, removing the other skew risk.
+
+Verified behaviour-preserving: feature frame byte-identical (9497 × 93),
+test metrics unchanged (MAE 6.489 / 7.310 / 7.498).
+
+**End-to-end serving test on an unseen date (2026-08-15):** fetched 720
+hourly rows, built all 92 features complete, predicted 67.9 / 69.4 / 69.7
+against actuals 62.8 / 51.9 / 58.1. Errors 5.1 / 17.5 / 11.6 — the middle
+day was a deteriorating wet period, consistent with the known wet-day
+weakness. One sample, not a benchmark, but the full path works.
+
+## Modelling status (honest summary)
+
+| Step | Status |
+|---|---|
+| Feature engineering | Done — 92 features |
+| Hyperparameter tuning | Partial — `alpha` only, one algorithm |
+| Feature selection | Partial — base variables screened; **no selection among the 92** |
+| Algorithm comparison | **Not done** — Ridge only |
+| Final model chosen | **No** — Ridge is the bar, not the winner |
+
 ## Next experiments (ranked by expected uplift)
 
 1. Gradient boosted trees — can represent the clipped rain component.
