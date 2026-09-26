@@ -212,6 +212,153 @@ can rescue it. Max hazard probability assigned to any day: 0.263.
   unimported `Literal`.
 - 0.2.0 = weather/targets/timeseries. 0.3.0 = modeling/importance/visualization.
 
+
+---
+
+# Experiment 2 round (student-level rewrite)
+
+## Style rules agreed (after feedback)
+
+Notebooks must show the logic, not hide it behind wrappers. The package holds
+functions that are genuinely reused, and the notebook calls them **one at a
+time** so each step is visible. Explanation blocks ~100 words (more for
+writing-heavy sections). Target formulas written out in full in the notebook,
+with an `assert` that they match the package version the API uses.
+
+## CCI Experiment 2 — Random Forest: **HYPOTHESIS REJECTED**
+
+Window 2015–2025, 96 features, split 2023-01-01 / 2024-07-01, 2,919 train rows.
+
+| Model | test h1 | h2 | h3 | val h1 | CV h1 |
+|---|---|---|---|---|---|
+| **Ridge (alpha=1000)** | **6.489** | **7.350** | **7.527** | 6.231 | 6.234 |
+| Random Forest (tuned, change target + recency weights) | 6.570 | 7.630 | 7.694 | **6.070** | **6.093** |
+| Gradient boosting | 6.727 | 7.829 | 7.966 | 6.149 | 6.417 |
+| Ridge + Forest average | 6.437 | 7.430 | 7.559 | 6.094 | — |
+| Persistence | 7.560 | 9.093 | 9.589 | — | — |
+| Seasonal average | 8.721 | 8.716 | 8.691 | — | — |
+
+Ridge test metrics: RMSE 8.561 / 9.710 / 9.995 · R² 0.447 / 0.288 / 0.241
+Band agreement 65.2% / 61.9% / 62.1% · within 5 points 49.3% / 45.4% / 42.9%
+Too optimistic on 46.2% of days; mean overshoot when optimistic 7.33 points.
+RF best params: max_depth 15, min_samples_leaf 5, max_features 0.3 (h1, h3) / 1.0 (h2).
+
+**Findings:**
+1. **Validation and test disagreed.** RF won on CV (6.093 vs 6.234) and on
+   validation (6.070 vs 6.231), lost on test. Selecting on tuning scores would
+   have shipped the worse model. 544 validation days → 0.15 MAE is noise.
+2. **Wet days:** Ridge 5.61 (dry) / 5.61 (light) / **16.56** (>10 mm).
+   Forest 5.78 / 5.69 / **15.91**. The tree fixed a little of the rain problem
+   and lost more on the 92% of days that are dry or light.
+3. **Rain features are used only with the change target.** Predicting the level
+   (G.2): precipitation rank 55, `is_wet_day` rank 90 of 90. Predicting the
+   change (J.4): precipitation rank 2, `precipitation_max` 4, `precipitation_hours` 7.
+4. **Feature reduction never helped.** All 96 = 6.198 val MAE; 6 near-duplicates
+   removed (0.95 threshold) = 6.235; top 40/30/20 = 6.290 / 6.339 / 6.402.
+5. **Ceiling ~6.4–6.7 MAE** across linear, bagged trees, boosted trees,
+   differenced target, recency weights, feature selection and a blend.
+
+**No model saved.** Exp 1 Ridge stays the final, deployed model. A Ridge fitted
+on the 96-feature set matched it at h1 (6.489) and was slightly worse at h2/h3,
+confirming the six rain features are not worth redeploying for.
+
+## WHC Experiment 2 — in progress
+
+Window 2000–2025 (primary), 125 columns → **91 selected**, split 2018 / 2022,
+6,509 train rows. Horizon 7 days.
+
+**Class counts and shares per split:**
+
+| | train | val | test | train % | val % | test % |
+|---|---|---|---|---|---|---|
+| Low | 3830 | 706 | 665 | 58.8 | 48.6 | 45.7 |
+| Moderate | 2532 | 686 | 716 | 38.9 | 47.2 | 49.2 |
+| High | 143 | 58 | 70 | 2.2 | 4.0 | 4.8 |
+| Extreme | 4 | 4 | 3 | 0.1 | 0.3 | 0.2 |
+
+**Drift is confirmed and substantial:** Low 58.8% → 45.7%, Moderate 38.9% →
+49.2%, and High Risk **more than doubles** (2.2% → 4.8%). Recent Sydney years
+are genuinely more hazardous.
+
+**The horizon is the binding constraint.** Same-day vs +7-day correlation:
+
+| Variable | same day | +7 days | variance explained at +7 |
+|---|---|---|---|
+| cloud_cover | 0.799 | 0.063 | 0.004 |
+| precipitation | 0.746 | 0.021 | **0.000** |
+| whi | 1.000 | 0.063 | 0.004 |
+| temperature_2m | 0.103 | **0.136** | **0.019** ← best |
+
+Fade by horizon (whi): 1d 0.487 · 2d 0.211 · 3d 0.118 · 5d 0.073 · 7d 0.063 · 10d 0.065.
+Flat by 5 days — 7 days is no different from 10.
+
+**Window length test (F.2)** — correlation of the rolling WHI mean with the
+target 7 days out:
+
+```
+7d 0.105 · 14d 0.129 · 30d 0.141 · 60d 0.158 ← peak · 90d 0.157 · 120d 0.145 · 180d 0.103
+```
+
+Inverted U. 60 days kept. Longer windows blur the seasonal pattern that gives
+these features their value. **My prediction that longer would keep improving
+was wrong** — tested and documented in F.2.
+
+**Rain features beat raw rainfall here** (unlike CCI): `rain_days_roll30` 0.064
+vs `precipitation` 0.021. "Has it been a wet month" survives 7 days; "did it
+rain today" does not.
+
+**Feature selection (G.2, 0.85 threshold):** 123 → 91 (32 near-duplicates
+removed). Validation macro F1: all 123 = 0.2746 · **no duplicates (91) = 0.2752**
+(chosen) · top 20 = 0.2742 · top 30 = 0.2659 · top 40 = 0.2674.
+
+**Importance is flat** — top feature 0.034 (vs 0.37 for `cci` in the comfort
+model). Key ranks: `whi_roll60_mean` #3 · `temperature_2m` #20 · **`whi` #42**
+· `rain_days_roll30` #75 · **`snowfall` #91 with importance exactly 0.00000**.
+Today's hazard ranks 42nd while its 60-day average ranks 3rd — the reverse of
+the comfort model, exactly as D.1 predicted.
+
+**Metric finding (recorded in section I).** No aggregate metric encodes the
+business objective. Demonstrated on the real test distribution with three
+imaginary models:
+
+| Model | accuracy | balanced_acc | macro_F1 | recall_High | caught | false alarms |
+|---|---|---|---|---|---|---|
+| Always Moderate | 0.492 | 0.250 | 0.165 | 0.000 | 0 | 0 |
+| **Never warns** | **0.673** | **0.354** | **0.345** | 0.000 | **0** | 0 |
+| Over-warns | 0.479 | 0.322 | 0.302 | 0.314 | 24 | 400 |
+
+**Balanced accuracy prefers the silent model too** (0.354 vs 0.322), so
+switching to it would not have fixed experiment 1. Only per-class recall and
+the caught/false-alarm counts reveal the difference. ⇒ Tune on macro F1, report
+`hazard_summary` alongside, decide with the threshold sweep.
+
+**Techniques applied / rejected:**
+
+| Technique | Status |
+|---|---|
+| Longer windows 90/120/180 | ❌ Tested, rejected — peak at 60 |
+| Recency weights (`0.9 ** age_in_years`) | ⏳ J.2, final fit |
+| Threshold sweep on P(High)+P(Extreme) | ⏳ J.4, only if ROC AUC > 0.5 |
+| 2015+ window comparison | ⏳ J.4 — val/test held fixed, only training start moves (1,089 rows vs 6,509; 28 High vs 143) |
+| Probability calibration | Held |
+| Hazard climatology feature | Held — needs package + API work |
+| SMOTE / oversampling | Rejected — fabricates dates that never existed |
+
+**Exp 1 reference to beat:** macro F1 0.241, **ROC AUC 0.378 (below random)**,
+0 of 73 hazardous days flagged.
+
+**If 2015+ wins**, we revisit the split boundaries to give training a sensible
+size — noting that a new test period breaks comparability with experiment 1.
+
+## Package versions
+
+- 0.3.1 — `add_rain_features` (wet-day flag, rolling rain-day counts, rolling
+  totals, days since rain); `required_history_days` accounts for rain windows.
+- 0.3.2 — recipe may set `within_day_columns`. **Published to TestPyPI.**
+  111 tests passing.
+- API stays pinned to **0.3.0**, correct because the deployed exp 1 artefacts
+  were built with that recipe.
+
 ## Outstanding
 
 - [ ] Publish 0.3.0 to TestPyPI, re-lock the experiments repo.
