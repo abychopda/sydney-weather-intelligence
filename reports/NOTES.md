@@ -262,7 +262,7 @@ RF best params: max_depth 15, min_samples_leaf 5, max_features 0.3 (h1, h3) / 1.
 on the 96-feature set matched it at h1 (6.489) and was slightly worse at h2/h3,
 confirming the six rain features are not worth redeploying for.
 
-## WHC Experiment 2 — in progress
+## WHC Experiment 2 — Random Forest: **HYPOTHESIS REJECTED**
 
 Window 2000–2025 (primary), 125 columns → **91 selected**, split 2018 / 2022,
 6,509 train rows. Horizon 7 days.
@@ -347,8 +347,65 @@ the caught/false-alarm counts reveal the difference. ⇒ Tune on macro F1, repor
 **Exp 1 reference to beat:** macro F1 0.241, **ROC AUC 0.378 (below random)**,
 0 of 73 hazardous days flagged.
 
-**If 2015+ wins**, we revisit the split boundaries to give training a sensible
-size — noting that a new test period breaks comparability with experiment 1.
+### Section J results
+
+RF best: `class_weight='balanced'`, `max_features='sqrt'`, `min_samples_leaf=5`.
+CV macro F1 0.3338. HGB best: `class_weight='balanced'`, lr 0.05, 31 leaves, CV 0.3169.
+Logistic (J.4.1): `C=0.1`, `class_weight=None`, CV 0.3156.
+
+| Model | val macro F1 | test macro F1 | val AUC | test AUC | test recall High |
+|---|---|---|---|---|---|
+| RF + recency weights | 0.2748 | **0.2606** | **0.5074** | 0.4647 | 0.0 |
+| RF, no weights | 0.2759 | 0.2540 | 0.4819 | 0.4452 | 0.0 |
+| RF on 2015+ window | 0.2870 | 0.2538 | 0.4703 | **0.4103** | 0.0 |
+| Gradient boosting | 0.2700 | 0.2574 | 0.4847 | 0.4988 | 0.0 |
+
+**Every test ROC AUC is below 0.5.** Best is 0.4647.
+
+class_weight comparison (mean CV macro F1 across the grid):
+`balanced` **0.3205** · `balanced_subsample` 0.3068 · `None` 0.2987.
+
+**Threshold sweep (validation), base hazardous rate 0.0426:**
+
+| threshold | caught | missed | recall | precision | alerts/yr |
+|---|---|---|---|---|---|
+| 0.25 | 1 | 61 | 0.02 | 0.020 | 12.8 |
+| 0.20 | 9 | 53 | 0.15 | 0.055 | 41.4 |
+| 0.15 | 20 | 42 | 0.32 | 0.045 | 112.5 |
+| 0.10 | 46 | 16 | 0.74 | 0.043 | 267.8 |
+| 0.05 | 61 | 1 | 0.98 | 0.043 | 359.0 |
+
+**Precision equals the base rate at every threshold** → the flagged days are no
+better than random. No operating point exists.
+
+### Five findings
+
+1. **The horizon is the whole problem.** +7-day correlations ≈ 0; best feature
+   explains ~2% of variance; already flat by 5 days.
+2. **Feature engineering contributed nothing (J.4.1).** Exp 1's logistic model
+   refitted on exp 2's 91 features: macro F1 **0.2358** (vs 0.2410 on its own
+   features), AUC 0.3875 (vs 0.3780). All improvement came from the model
+   change, and it wasn't enough.
+3. **Drift was NOT the cause — this corrects exp 1's explanation.** The 2015+
+   window scored 0.4103, *worse* than the full record. The class mix has
+   genuinely shifted (High Risk 2.2% → 4.8%), but training on recent data alone
+   loses the rare examples. Recency weighting on the full record was the better
+   version and gave the only chance-level number in the notebook (val 0.5074).
+   ⇒ **No need to revisit split boundaries.**
+4. **Rolling window length has an optimum at 60 days** (7→0.105, 60→0.158,
+   180→0.103). Longer blurs the seasonal pattern.
+5. **A metric can improve while the service doesn't.** Class weights lift CV
+   macro F1 0.2987 → 0.3205 and change nothing about hazard detection.
+
+Extreme Risk undetectable (4 training examples), as expected.
+
+**No model saved.** Exp 1 artefact stays deployed. Replacing it would need an
+API code change plus a package version bump for a model still below chance.
+
+**What would be needed instead:** different data — synoptic pressure patterns,
+oceanic indices (e.g. Southern Oscillation Index), or physical weather model
+output. The last is what official forecasts use, which is why they manage a
+week ahead and this cannot.
 
 ## Package versions
 
